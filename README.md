@@ -76,7 +76,9 @@ python3 ./main.py -c trading -A
 
 ### Representation
 
-Example of `Similarity.log`
+#### Similarity Log
+
+Example of `Similarity.log`:
 
 ```
 ------------------------------001 : dapp------------------------------
@@ -111,6 +113,28 @@ Example of `Similarity.log`
 - For each `.sol` file or contract, the comparison result will be either "completely the same" or showing details.
 
 - For each function, the comparison result will be either "completely the same" or "same signature", which means that the function signatures are the same, while the implementations are different.
+
+#### External Log
+
+Example of `external.log`:
+
+```
+--------------------------------008 : Lokian.eth--------------------------------
+{
+	'008/Lokian.eth/src/project.eth.sol': 
+	{
+		'contract Cryptomons is ERC1155Holder': 
+		{
+			'function deposit ( uint256 amount ) public onlyManager': ['_token.allowance', '_token.transferFrom'],
+			'function withdraw ( uint256 amount ) public onlyManager': ['_token.balanceOf', '_token.transfer'],
+			'function burn ( uint256 amount ) public': ['_token.allowance', '_token.balanceOf', '_token.burnFrom'],
+		}
+	}
+}
+```
+
+- The dictionary structure is almost the same as `similarity.log`.
+- For each function, the key is the signature of this function, the value is a list containing the names of all external call.  
 
 ## Other
 
