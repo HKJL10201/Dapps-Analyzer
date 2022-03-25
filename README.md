@@ -102,6 +102,8 @@ Example of `Similarity.log`:
 
 - Each symbol `>>` indicates the comparison with an other dapp, for example `>> 022 : vixx: ` means the results of compare dapp "001" with "022".
 
+- Note that the comparison between dapps is one-way. For example, if "001" and "002" are compared, "002" will not be compared with "001" again.
+
 - Symbol `::` indicates the comparison between two `.sol` files or contracts or functions.
 
 - The comparison results between two dapps are shown in a dictionary. One `Dapp` contains several `.sol` files; each file is a `Program`, containing several `Contract`; each contract contains several `Function`.
