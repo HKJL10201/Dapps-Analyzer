@@ -4,28 +4,35 @@ import program_analyzer as PA
 FILE = 'sol.log'
 LOG = 'similarity.log'
 EXT_LOG = 'external.log'
-
+ignore_programs=['Migrations.sol','node_modules']
+ignore_contracts=['Migrations']
 
 class Dapp():
-    def __init__(self) -> None:
-        self.name = ''
-        self.index = ''
-        self.programs = []
-        self.similarity = {}
-
     def __init__(self, name, index) -> None:
         self.name = name
         self.index = index
         self.programs = []
         self.similarity = {}
+        self.classes={}
 
     def set_programs(self, programs):
         self.programs = programs
-
-    def compare_with(self, b):
+    
+    def set_classes(self):
+        for p in self.programs:
+            for c in p.contracts+p.interfaces+p.libraries:
+                if c.sign['name'] not in self.classes.keys():
+                    self.classes[c.sign['name']]=c
+               
+    def compare_with(self, b,mode):
+        global ignore_programs
         for pa in self.programs:
+            if check_ignore(ignore_programs,pa.name):
+                continue
             for pb in b.programs:
-                idx, content = program_compare(pa, pb)
+                if check_ignore(ignore_programs,pb.name):
+                    continue
+                idx, content = program_compare(pa, pb,mode)
                 if idx != 0:
                     key = b.index+' : '+b.name
                     if key not in self.similarity.keys():
@@ -57,36 +64,52 @@ def dic_to_string(idx, dic):
     res += ','.join(items)+'\n'+'\t'*idx+'}'
     return res
 
+def check_ignore(src,tar):
+    for s in src:
+        if s in tar:
+            return True
+    return False
 
-def program_compare(a, b):
+def program_compare(a, b,mode):
+    global ignore_contracts
     if ' '.join(a.code) == ' '.join(b.code):
         return 1, 'completely same'
+    if mode=='program':
+        return 0,None
     contents = {}
     flag = 0
     for ca in a.contracts:
+        if ca.sign['name'] in ignore_contracts:
+            continue
         for cb in b.contracts:
-            idx, content = contract_compare(ca, cb)
+            if cb.sign['name'] in ignore_contracts:
+                continue
+            idx, content = contract_compare(ca, cb,mode)
             if idx != 0:
                 contents[' '.join(ca.name)+'::'+' '.join(cb.name)] = content
                 flag = 1
     return flag, contents
 
 
-def contract_compare(a, b):
+def contract_compare(a, b,mode):
     if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
         return 1, 'completely same'
+    if mode=='contract':
+        return 0,None
+    if mode!='function':
+        return 0,None
     contents = {}
     flag = 0
     for fa in a.functions:
         for fb in b.functions:
-            idx, content = function_compare(fa, fb)
+            idx, content = function_compare(fa, fb,mode)
             if idx != 0:
                 contents[' '.join(fa.name)+'::'+' '.join(fb.name)] = content
                 flag = 1
     return flag, contents
 
 
-def function_compare(a, b):
+def function_compare(a, b,mode):
     if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
         return 1, 'completely same'
     if ' '.join(a.name) == ' '.join(b.name):
@@ -126,29 +149,67 @@ def dapp_analyzer(dapp_dic):
         for file in program_list:
             programs.append(PA.main(file))
         dapp.set_programs(programs)
+        dapp.set_classes()
         dapps.append(dapp)
     return dapps
 
 
 def check_external(dapp):
+    global ignore_programs,ignore_contracts
     def is_name(s):
-        non = "~!@#$%^&*()_+-*/<>,.[]\/="
-        key = ['if', 'for', 'require', 'return', 'address']
-        if len(s) > 0 and (s in key or s[-1] in non):
-            return False
+        non = "~!@#$%^&*()+-*/<>,[]\/=;\{\}|?:"
+        key = ['if', 'for','while', 'require', 'return', 'function','push',\
+                'uint','int','address','string']
+        for i in range(1,33):
+            key.append('int'+str(i*8))
+            key.append('uint'+str(i*8))
+        if len(s) > 0:
+            if s in key:
+                return False
+            for i in s:
+                if i in non:
+                    return False
         return True
+    
+    def check_instance_usage(dapp,contract): # fuzzy instance usage detection
+        code=contract.code
+        for word in code:
+            if word in dapp.classes.keys():
+                contract.sign['inherit'].append(word)
+
+    def get_defined_tree(dapp,contract):
+        funcs = list(contract.defined_names)
+        inherits=contract.sign['inherit']
+        if len(inherits)>0:
+            funcs+=list(inherits)
+            for c_name in inherits:
+                if c_name in dapp.classes.keys():
+                    funcs+=get_defined_tree(dapp,dapp.classes[c_name])
+        return funcs
 
     p_dic = {}
     for p in dapp.programs:
+        if check_ignore(ignore_programs,p.name):
+            continue
         c_dic = {}
         for c in p.contracts:
-            funcs = c.get_function_names()+c.defined_names
+            if c.sign['name'] in ignore_contracts:
+                continue
+            #check_instance_usage(dapp,c)
+            funcs = get_defined_tree(dapp,c)
+
             f_dic = {}
             for f in c.functions:
+                if len(f.sign['name'])==0:
+                    continue
                 external_funcs = []
                 code = f.code
                 code = ' '.join(code).replace(
-                    '(', ' ( ').replace(')', ' ) ').split()
+                    '(', ' ( ').replace(
+                        ')', ' ) ').replace(
+                            '[', ' [ ').replace(
+                                ']', ' ] ').replace(
+                                    '.', ' . ').split()
                 i = 0
                 while i < len(code):
                     word = code[i]
@@ -202,13 +263,13 @@ def external_analyze(dapps, log):
     print('>> external analysis finished, results are shown in '+log)
 
 
-def compare(dapps, log, amount):
+def compare(dapps, log, mode):
     n = len(dapps)
     w = open(log, 'w')
     l_bar = 50
     print("START COMPARE".center(l_bar, "-"))
     start = time.perf_counter()
-    for i in range(n-1):
+    for i in range(n):
         bi = int(i/(n-2)*l_bar)
         ba = "*" * bi
         bb = "." * (l_bar - bi)
@@ -216,32 +277,36 @@ def compare(dapps, log, amount):
         dur = time.perf_counter() - start
         print("\r{:^3.0f}%[{}->{}]{:.2f}s".format(bc, ba, bb, dur), end="")
 
-        for j in range(i+1, n):
-            dapps[i].compare_with(dapps[j])
+        for j in range(n):
+            if j==i:
+                continue
+            dapps[i].compare_with(dapps[j],mode)
     print("\n"+"END COMPARE".center(l_bar, "-"))
 
-    # write dapps do not contain .sol file
     dapp_counter = []
     for d in dapps:
         w.write(d.similarity_to_string())
         dapp_counter.append(d.index)
+    # write dapps do not contain .sol file
+    '''
     nonsol = []
     for i in range(1, amount+1):
         idx = '%03d' % i
         if idx not in dapp_counter:
             nonsol.append(idx)
     w.write('\nDapps without .sol file:\n'+str(nonsol)+'\n')
+    '''
     w.close()
     print('>> comparing finished, results are shown in '+log)
 
 
-def run_compare(amount):
+def run_compare(mode):
     global FILE, LOG
 
     dapps = dapp_analyzer(dapp_init(init(FILE)))
     print('Dapps analyze finish.')
 
-    compare(dapps, LOG, amount)
+    compare(dapps, LOG, mode)
 
 
 def run_external():
@@ -253,13 +318,13 @@ def run_external():
     external_analyze(dapps, EXT_LOG)
 
 
-def main(amount):
+def main(mode):
     global FILE, LOG, EXT_LOG
 
     dapps = dapp_analyzer(dapp_init(init(FILE)))
     print('Dapps analyze finish.')
 
-    compare(dapps, LOG, amount)
+    compare(dapps, LOG, mode)
 
     external_analyze(dapps, EXT_LOG)
 

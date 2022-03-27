@@ -44,6 +44,10 @@ def main() -> None:
                           action='store_true',
                           help='clear all generated files')
 
+    options = parser.add_argument_group('Analyze options')
+    options.add_argument('--mode', 
+                        help='compare mode: [program, contract, function]')
+
     args = parser.parse_args()
 
     category = None
@@ -52,6 +56,10 @@ def main() -> None:
     max_idx = 100
     if args.amount:
         max_idx = args.amount
+
+    compare_mode='contract'
+    if args.mode:
+        compare_mode=args.mode
 
     if args.reptile:
         if args.category:
@@ -69,7 +77,7 @@ def main() -> None:
         sol_selector.main()
 
     if args.compare:
-        dapp_analyzer.run_compare(max_idx)
+        dapp_analyzer.run_compare(compare_mode)
 
     if args.external:
         dapp_analyzer.run_external()
@@ -80,7 +88,7 @@ def main() -> None:
             dapp_reptile.main(category, max_idx)
             dapp_download.main()
             sol_selector.main()
-            dapp_analyzer.main(max_idx)
+            dapp_analyzer.main(compare_mode)
         else:
             print('Error: Please specify your category!')
             parser.print_help()
