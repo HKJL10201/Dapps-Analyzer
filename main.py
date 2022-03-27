@@ -45,8 +45,8 @@ def main() -> None:
                           help='clear all generated files')
 
     options = parser.add_argument_group('Analyze options')
-    options.add_argument('--mode', 
-                        help='compare mode: [program, contract, function]')
+    options.add_argument('--mode',
+                         help='compare mode: [program, contract, function]')
 
     args = parser.parse_args()
 
@@ -57,9 +57,9 @@ def main() -> None:
     if args.amount:
         max_idx = args.amount
 
-    compare_mode='contract'
+    compare_mode = 'contract'
     if args.mode:
-        compare_mode=args.mode
+        compare_mode = args.mode
 
     if args.reptile:
         if args.category:
@@ -100,7 +100,7 @@ def main() -> None:
     if not args.reptile and not args.download\
         and not args.sol and not args.compare\
             and not args.external and not args.all\
-    and not args.clear:
+        and not args.clear:
         parser.print_help()
 
 

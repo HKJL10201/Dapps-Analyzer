@@ -4,8 +4,9 @@ import program_analyzer as PA
 FILE = 'sol.log'
 LOG = 'similarity.log'
 EXT_LOG = 'external.log'
-ignore_programs=['Migrations.sol','node_modules']
-ignore_contracts=['Migrations']
+ignore_programs = ['Migrations.sol', 'node_modules']
+ignore_contracts = ['Migrations']
+
 
 class Dapp():
     def __init__(self, name, index) -> None:
@@ -13,26 +14,26 @@ class Dapp():
         self.index = index
         self.programs = []
         self.similarity = {}
-        self.classes={}
+        self.classes = {}
 
     def set_programs(self, programs):
         self.programs = programs
-    
+
     def set_classes(self):
         for p in self.programs:
             for c in p.contracts+p.interfaces+p.libraries:
                 if c.sign['name'] not in self.classes.keys():
-                    self.classes[c.sign['name']]=c
-               
-    def compare_with(self, b,mode):
+                    self.classes[c.sign['name']] = c
+
+    def compare_with(self, b, mode):
         global ignore_programs
         for pa in self.programs:
-            if check_ignore(ignore_programs,pa.name):
+            if check_ignore(ignore_programs, pa.name):
                 continue
             for pb in b.programs:
-                if check_ignore(ignore_programs,pb.name):
+                if check_ignore(ignore_programs, pb.name):
                     continue
-                idx, content = program_compare(pa, pb,mode)
+                idx, content = program_compare(pa, pb, mode)
                 if idx != 0:
                     key = b.index+' : '+b.name
                     if key not in self.similarity.keys():
@@ -64,18 +65,20 @@ def dic_to_string(idx, dic):
     res += ','.join(items)+'\n'+'\t'*idx+'}'
     return res
 
-def check_ignore(src,tar):
+
+def check_ignore(src, tar):
     for s in src:
         if s in tar:
             return True
     return False
 
-def program_compare(a, b,mode):
+
+def program_compare(a, b, mode):
     global ignore_contracts
     if ' '.join(a.code) == ' '.join(b.code):
         return 1, 'completely same'
-    if mode=='program':
-        return 0,None
+    if mode == 'program':
+        return 0, None
     contents = {}
     flag = 0
     for ca in a.contracts:
@@ -84,32 +87,32 @@ def program_compare(a, b,mode):
         for cb in b.contracts:
             if cb.sign['name'] in ignore_contracts:
                 continue
-            idx, content = contract_compare(ca, cb,mode)
+            idx, content = contract_compare(ca, cb, mode)
             if idx != 0:
                 contents[' '.join(ca.name)+'::'+' '.join(cb.name)] = content
                 flag = 1
     return flag, contents
 
 
-def contract_compare(a, b,mode):
+def contract_compare(a, b, mode):
     if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
         return 1, 'completely same'
-    if mode=='contract':
-        return 0,None
-    if mode!='function':
-        return 0,None
+    if mode == 'contract':
+        return 0, None
+    if mode != 'function':
+        return 0, None
     contents = {}
     flag = 0
     for fa in a.functions:
         for fb in b.functions:
-            idx, content = function_compare(fa, fb,mode)
+            idx, content = function_compare(fa, fb, mode)
             if idx != 0:
                 contents[' '.join(fa.name)+'::'+' '.join(fb.name)] = content
                 flag = 1
     return flag, contents
 
 
-def function_compare(a, b,mode):
+def function_compare(a, b, mode):
     if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
         return 1, 'completely same'
     if ' '.join(a.name) == ' '.join(b.name):
@@ -155,12 +158,13 @@ def dapp_analyzer(dapp_dic):
 
 
 def check_external(dapp):
-    global ignore_programs,ignore_contracts
+    global ignore_programs, ignore_contracts
+
     def is_name(s):
         non = "~!@#$%^&*()+-*/<>,[]\/=;\{\}|?:"
-        key = ['if', 'for','while', 'require', 'return', 'function','push',\
-                'uint','int','address','string']
-        for i in range(1,33):
+        key = ['if', 'for', 'while', 'require', 'return', 'function', 'push',
+               'uint', 'int', 'address', 'string']
+        for i in range(1, 33):
             key.append('int'+str(i*8))
             key.append('uint'+str(i*8))
         if len(s) > 0:
@@ -170,37 +174,42 @@ def check_external(dapp):
                 if i in non:
                     return False
         return True
-    
-    def check_instance_usage(dapp,contract): # fuzzy instance usage detection
-        code=contract.code
+
+    def check_instance_usage(dapp, contract):  # fuzzy instance usage detection
+        code = contract.code
         for word in code:
             if word in dapp.classes.keys():
-                contract.sign['inherit'].append(word)
+                contract.instances.append(word)
 
-    def get_defined_tree(dapp,contract):
+    def get_defined_tree(dapp, contract):
         funcs = list(contract.defined_names)
-        inherits=contract.sign['inherit']
-        if len(inherits)>0:
-            funcs+=list(inherits)
+        inherits = contract.sign['inherit']
+        if len(contract.instances) > 0:
+            for c_name in contract.instances:
+                if c_name in dapp.classes.keys():
+                    funcs.append(c_name)
+                    funcs += list(dapp.classes[c_name].defined_names)
+        if len(inherits) > 0:
+            funcs += list(inherits)
             for c_name in inherits:
                 if c_name in dapp.classes.keys():
-                    funcs+=get_defined_tree(dapp,dapp.classes[c_name])
+                    funcs += get_defined_tree(dapp, dapp.classes[c_name])
         return funcs
 
     p_dic = {}
     for p in dapp.programs:
-        if check_ignore(ignore_programs,p.name):
+        if check_ignore(ignore_programs, p.name):
             continue
         c_dic = {}
         for c in p.contracts:
             if c.sign['name'] in ignore_contracts:
                 continue
-            #check_instance_usage(dapp,c)
-            funcs = get_defined_tree(dapp,c)
+            check_instance_usage(dapp, c)
+            funcs = get_defined_tree(dapp, c)+list(dapp.classes.keys())
 
             f_dic = {}
             for f in c.functions:
-                if len(f.sign['name'])==0:
+                if len(f.sign['name']) == 0:
                     continue
                 external_funcs = []
                 code = f.code
@@ -278,9 +287,9 @@ def compare(dapps, log, mode):
         print("\r{:^3.0f}%[{}->{}]{:.2f}s".format(bc, ba, bb, dur), end="")
 
         for j in range(n):
-            if j==i:
+            if j == i:
                 continue
-            dapps[i].compare_with(dapps[j],mode)
+            dapps[i].compare_with(dapps[j], mode)
     print("\n"+"END COMPARE".center(l_bar, "-"))
 
     dapp_counter = []
