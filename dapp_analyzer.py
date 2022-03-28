@@ -162,8 +162,8 @@ def check_external(dapp):
 
     def is_name(s):
         non = "~!@#$%^&*()+-*/<>,[]\/=;\{\}|?:"
-        key = ['if', 'for', 'while', 'require', 'return', 'function', 'push',
-               'uint', 'int', 'address', 'string']
+        key = ['if', 'for', 'while', 'require', 'return', 'assert', 'push', 'send',
+               'uint', 'int', 'address', 'string', 'function']
         for i in range(1, 33):
             key.append('int'+str(i*8))
             key.append('uint'+str(i*8))
@@ -177,6 +177,7 @@ def check_external(dapp):
 
     def check_instance_usage(dapp, contract):  # fuzzy instance usage detection
         code = contract.code
+        code = ' '.join(code).replace('(', ' ( ').replace(')', ' ) ').split()
         for word in code:
             if word in dapp.classes.keys():
                 contract.instances.append(word)
@@ -184,15 +185,19 @@ def check_external(dapp):
     def get_defined_tree(dapp, contract):
         funcs = list(contract.defined_names)
         inherits = contract.sign['inherit']
-        if len(contract.instances) > 0:
-            for c_name in contract.instances:
-                if c_name in dapp.classes.keys():
-                    funcs.append(c_name)
-                    funcs += list(dapp.classes[c_name].defined_names)
         if len(inherits) > 0:
             funcs += list(inherits)
             for c_name in inherits:
                 if c_name in dapp.classes.keys():
+                    funcs += get_defined_tree(dapp, dapp.classes[c_name])
+        return funcs
+
+    def get_instance_tree(dapp, contract):
+        funcs = list(contract.instances)
+        if len(funcs) > 0:
+            for c_name in funcs:
+                if c_name in dapp.classes.keys():
+                    funcs.append(c_name)
                     funcs += get_defined_tree(dapp, dapp.classes[c_name])
         return funcs
 
@@ -205,7 +210,7 @@ def check_external(dapp):
             if c.sign['name'] in ignore_contracts:
                 continue
             check_instance_usage(dapp, c)
-            funcs = get_defined_tree(dapp, c)+list(dapp.classes.keys())
+            funcs = get_defined_tree(dapp, c)  # +get_instance_tree(dapp, c)
 
             f_dic = {}
             for f in c.functions:
@@ -237,7 +242,7 @@ def check_external(dapp):
                                 external_funcs.append(name)
                     i += 1
                 if len(external_funcs) > 0:
-                    f_dic[' '.join(f.name)] = external_funcs
+                    f_dic[' '.join(f.name[:2])] = external_funcs
             if len(f_dic) > 0:
                 c_dic[' '.join(c.name)] = f_dic
         if len(c_dic) > 0:
