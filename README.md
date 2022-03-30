@@ -15,7 +15,7 @@ To compare **similarity** and identify **external function call** within several
 
 ### What is new!
 
-(update 3.28.22 and 3.27.22)
+(update 22.0330.01)
 
 - Added more filter options (see **Instruction**).
 - Now external call analysis support inheritance detection, all functions defined in the parent class will not be detected as external call.
