@@ -314,8 +314,15 @@ def compare(dapps, log, mode):
     print('>> comparing finished, results are shown in '+log)
 
 
-def run_compare(mode):
+def set_global(igfile, igcon):
+    global ignore_programs, ignore_contracts
+    ignore_programs = igfile
+    ignore_contracts = igcon
+
+
+def run_compare(mode, igfile, igcon):
     global FILE, LOG
+    set_global(igfile, igcon)
 
     dapps = dapp_analyzer(dapp_init(init(FILE)))
     print('Dapps analyze finish.')
@@ -323,8 +330,9 @@ def run_compare(mode):
     compare(dapps, LOG, mode)
 
 
-def run_external():
+def run_external(igfile, igcon):
     global FILE, EXT_LOG
+    set_global(igfile, igcon)
 
     dapps = dapp_analyzer(dapp_init(init(FILE)))
     print('Dapps analyze finish.')
@@ -332,8 +340,9 @@ def run_external():
     external_analyze(dapps, EXT_LOG)
 
 
-def main(mode):
+def main(mode, igfile, igcon):
     global FILE, LOG, EXT_LOG
+    set_global(igfile, igcon)
 
     dapps = dapp_analyzer(dapp_init(init(FILE)))
     print('Dapps analyze finish.')

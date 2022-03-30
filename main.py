@@ -46,7 +46,23 @@ def main() -> None:
 
     options = parser.add_argument_group('Analyze options')
     options.add_argument('--mode',
-                         help='compare mode: [program, contract, function]')
+                         nargs='?',
+                         default=False,
+                         const='function',
+                         choices=['program', 'contract', 'function'],
+                         help='compare mode: [program, contract, function]. Default value is function')
+    options.add_argument('--igfile',
+                         nargs='?',
+                         default=False,
+                         const='Migrations.sol,node_modules',
+                         help='ignore the files or diretories with specific names, \
+                             saparated with commas. Default value is Migrations.sol,node_modules')
+    options.add_argument('--igcon',
+                         nargs='?',
+                         default=False,
+                         const='Migrations',
+                         help='ignore the contracts with specific names, \
+                             saparated with commas. Default value is Migrations')
 
     args = parser.parse_args()
 
@@ -57,9 +73,16 @@ def main() -> None:
     if args.amount:
         max_idx = args.amount
 
-    compare_mode = 'contract'
+    compare_mode = 'function'
     if args.mode:
         compare_mode = args.mode
+
+    ignore_programs = []
+    ignore_contracts = []
+    if args.igfile:
+        ignore_programs = args.igfile.split(',')
+    if args.igcon:
+        ignore_programs = args.igcon.split(',')
 
     if args.reptile:
         if args.category:
@@ -77,10 +100,11 @@ def main() -> None:
         sol_selector.main()
 
     if args.compare:
-        dapp_analyzer.run_compare(compare_mode)
+        dapp_analyzer.run_compare(
+            compare_mode, ignore_programs, ignore_contracts)
 
     if args.external:
-        dapp_analyzer.run_external()
+        dapp_analyzer.run_external(ignore_programs, ignore_contracts)
 
     if args.all:
         if args.category:
@@ -88,7 +112,7 @@ def main() -> None:
             dapp_reptile.main(category, max_idx)
             dapp_download.main()
             sol_selector.main()
-            dapp_analyzer.main(compare_mode)
+            dapp_analyzer.main(compare_mode, ignore_programs, ignore_contracts)
         else:
             print('Error: Please specify your category!')
             parser.print_help()
