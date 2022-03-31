@@ -82,7 +82,7 @@ def main() -> None:
     if args.igfile:
         ignore_programs = args.igfile.split(',')
     if args.igcon:
-        ignore_programs = args.igcon.split(',')
+        ignore_contracts = args.igcon.split(',')
 
     if args.reptile:
         if args.category:

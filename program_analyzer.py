@@ -11,6 +11,26 @@ class Program():
     def set_contracts(self, contracts):
         self.contracts = contracts
 
+    def compare_with(self, target, mode, ignore_contracts=[]):
+        if ' '.join(self.code) == ' '.join(target.code):
+            return 1, 'completely same'
+        if mode == 'program':
+            return 0, None
+        contents = {}
+        flag = 0
+        for ca in self.contracts:
+            if ca.sign['name'] in ignore_contracts:
+                continue
+            for cb in target.contracts:
+                if cb.sign['name'] in ignore_contracts:
+                    continue
+                idx, content = ca.compare_with(cb, mode)
+                if idx != 0:
+                    contents[' '.join(ca.name)+'::' +
+                             ' '.join(cb.name)] = content
+                    flag = 2
+        return flag, contents
+
     def print(self):
         print(self.name)
         for contract in self.contracts+self.interfaces+self.libraries:
@@ -43,6 +63,24 @@ class Contract():
         self.sign['name'] = name
         self.sign['inherit'] = inherit
 
+    def compare_with(self, target, mode):
+        if ' '.join(self.name+self.code) == ' '.join(target.name+target.code):
+            return 1, 'completely same'
+        if mode == 'contract':
+            return 0, None
+        if mode != 'function':
+            return 0, None
+        contents = {}
+        flag = 0
+        for fa in self.functions:
+            for fb in target.functions:
+                idx, content = fa.compare_with(fb, mode)
+                if idx != 0:
+                    contents[' '.join(fa.name)+'::' +
+                             ' '.join(fb.name)] = content
+                    flag = 1
+        return flag, contents
+
     def print(self):
         print(' '.join(self.name))
         print('inherits: '+str(self.sign['inherit']))
@@ -68,8 +106,13 @@ class Function():
         self.sign['scope'] = scope
         self.sign['returns'] = returns
 
-    def set_sign_raw(self, sign):
-        self.sign['raw'] = sign
+    def compare_with(self, target, mode):
+        if ' '.join(self.name+self.code) == ' '.join(target.name+target.code):
+            return 1, 'completely same'
+        if ' '.join(self.name) == ' '.join(target.name):
+            return 2, 'same signature'
+        # Todo: fuzzy compare
+        return 0, None
 
     def print(self):
         print(self.sign)

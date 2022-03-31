@@ -12,8 +12,10 @@ dist
 build
 
 # My configurations:
+__pycache__
 contracts
 dapp_link.csv
 sol.log
 similarity.log
 external.log
+*.sol

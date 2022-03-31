@@ -26,14 +26,14 @@ class Dapp():
                     self.classes[c.sign['name']] = c
 
     def compare_with(self, b, mode):
-        global ignore_programs
+        global ignore_programs, ignore_contracts
         for pa in self.programs:
             if check_ignore(ignore_programs, pa.name):
                 continue
             for pb in b.programs:
                 if check_ignore(ignore_programs, pb.name):
                     continue
-                idx, content = program_compare(pa, pb, mode)
+                idx, content = pa.compare_with(pb, mode, ignore_contracts)
                 if idx != 0:
                     key = b.index+' : '+b.name
                     if key not in self.similarity.keys():
@@ -87,38 +87,11 @@ def program_compare(a, b, mode):
         for cb in b.contracts:
             if cb.sign['name'] in ignore_contracts:
                 continue
-            idx, content = contract_compare(ca, cb, mode)
+            idx, content = ca.compare_with(cb, mode)
             if idx != 0:
                 contents[' '.join(ca.name)+'::'+' '.join(cb.name)] = content
                 flag = 1
     return flag, contents
-
-
-def contract_compare(a, b, mode):
-    if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
-        return 1, 'completely same'
-    if mode == 'contract':
-        return 0, None
-    if mode != 'function':
-        return 0, None
-    contents = {}
-    flag = 0
-    for fa in a.functions:
-        for fb in b.functions:
-            idx, content = function_compare(fa, fb, mode)
-            if idx != 0:
-                contents[' '.join(fa.name)+'::'+' '.join(fb.name)] = content
-                flag = 1
-    return flag, contents
-
-
-def function_compare(a, b, mode):
-    if ' '.join(a.name+a.code) == ' '.join(b.name+b.code):
-        return 1, 'completely same'
-    if ' '.join(a.name) == ' '.join(b.name):
-        return 2, 'same signature'
-    # Todo: fuzzy compare
-    return 0, None
 
 
 def init(file):
